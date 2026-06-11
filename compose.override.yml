@@ -1,0 +1,42 @@
+services:
+  rocketchat:
+    environment:
+      # Fix for broken IPv6 path on this host — without both flags Node's Happy Eyeballs
+      # races IPv4/IPv6 and the failing IPv6 poisons the connection, causing cloud calls
+      # to fail and the workspace to go read-only.
+      NODE_OPTIONS: "--dns-result-order=ipv4first --no-network-family-autoselection"
+      # Deliver notifications immediately instead of batching by presence state
+      NOTIFICATIONS_SCHEDULE_DELAY_ONLINE: "0"
+      NOTIFICATIONS_SCHEDULE_DELAY_AWAY: "0"
+      NOTIFICATIONS_SCHEDULE_DELAY_OFFLINE: "0"
+      # APNs push notifications (.p8 token-based)
+      PUSH_APNS_TOKEN_KEY_FILE: "/app/credentials/AuthKey_6LZHY62RNH.p8"
+      PUSH_APNS_TOKEN_KEY_ID: "6LZHY62RNH"
+      PUSH_APNS_TOKEN_TEAM_ID: "A2Q49354QZ"
+      PUSH_APNS_TOKEN_APP_BUNDLE_ID: "com.codingcops.chat"
+      # Use APNs Sandbox — dev builds have sandbox tokens, production APNs will drop them
+      PUSH_APNS_PRODUCTION: "false"
+      # Amazon S3 file uploads — values come from .env (kept out of git).
+      # OVERWRITE_SETTING_* forces these and makes them read-only in the Admin UI.
+      OVERWRITE_SETTING_FileUpload_Storage_Type: "AmazonS3"
+      OVERWRITE_SETTING_FileUpload_S3_Bucket: "${S3_BUCKET}"
+      # Top-level folder/prefix inside the bucket. RC still names each object
+      # with its internal IDs under this prefix (required for lookups).
+      OVERWRITE_SETTING_FileUpload_S3_Path: "upload/files"
+      OVERWRITE_SETTING_FileUpload_S3_Region: "${S3_REGION}"
+      OVERWRITE_SETTING_FileUpload_S3_AWSAccessKeyId: "${S3_ACCESS_KEY}"
+      OVERWRITE_SETTING_FileUpload_S3_AWSSecretAccessKey: "${S3_SECRET_KEY}"
+      # Proxy off: RC redirects the browser to the presigned S3 URL directly,
+      # so the original S3 link is exposed. Requires bucket CORS for the RC
+      # origin, and previewable files (txt/img/pdf) will open inline rather
+      # than force-download.
+      OVERWRITE_SETTING_FileUpload_S3_Proxy_Uploads: "false"
+      OVERWRITE_SETTING_FileUpload_S3_Proxy_Avatars: "false"
+    volumes:
+      - ./AuthKey_6LZHY62RNH.p8:/app/credentials/AuthKey_6LZHY62RNH.p8:ro
+
+
+
+
+
+

@@ -1,0 +1,12 @@
+/data/
+node_modules
+.env
+override-*
+override.*
+
+mongodb_vol/
+
+# Secrets — must never be committed
+*.p8
+AuthKey_*.p8
+rollback-plan-*.sh
