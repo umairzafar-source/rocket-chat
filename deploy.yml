@@ -1,0 +1,61 @@
+name: Deploy to server
+
+# Push to main -> validate compose -> SSH to the EC2 box -> pull + restart -> health check.
+# Manual runs are allowed too via the "Run workflow" button.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Don't let two deploys race; cancel an in-flight one if a newer push lands.
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    name: Validate compose files
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: docker compose config
+        run: |
+          docker compose \
+            -f compose.yml -f compose.database.yml -f compose.override.yml \
+            config -q
+          echo "Compose files are valid."
+
+  deploy:
+    name: Deploy to EC2
+    needs: validate
+    runs-on: ubuntu-latest
+    steps:
+      - name: SSH deploy
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          script_stop: true
+          script: |
+            set -e
+            cd ~/rocket-chat
+            echo "==> Pulling latest code"
+            git pull --ff-only origin main
+            echo "==> Pulling images"
+            docker compose pull
+            echo "==> Recreating containers"
+            docker compose up -d --remove-orphans
+            echo "==> Waiting for RocketChat to answer on :3000"
+            for i in $(seq 1 30); do
+              code=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3000/api/info || true)
+              if [ "$code" = "200" ]; then
+                echo "==> RocketChat healthy (HTTP 200)"
+                exit 0
+              fi
+              echo "    not ready yet (HTTP $code), retrying in 10s..."
+              sleep 10
+            done
+            echo "==> RocketChat did not return 200 within 5 minutes"
+            docker compose logs rocketchat --tail 50
+            exit 1
